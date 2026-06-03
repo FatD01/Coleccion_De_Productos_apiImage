@@ -3,18 +3,30 @@ require('dotenv').config();
 
 async function iniciarBD() {
     try {
-        const conexion = await mysql.createConnection({
+        console.log("Iniciando Base de Datos...");
+
+        //para local y para aiven
+        const configConexion = {
             host: process.env.DB_HOST,
             user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD
-        });
+            password: process.env.DB_PASSWORD,
+            port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306
+        };
 
+        // SI ESTAMOS EN PRODUCCIÓN (AIVEN)
+        if (process.env.DB_HOST && process.env.DB_HOST.includes('aivencloud.com')) {
+            configConexion.ssl = { rejectUnauthorized: false };
+        }
+
+        const conexion = await mysql.createConnection(configConexion);
+
+        // En Aiven 'defaultdb' ya existe, el script solo la verificará
         await conexion.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME}\`;`);
         console.log(`Base de datos '${process.env.DB_NAME}' verificada/creada.`);
 
         await conexion.query(`USE \`${process.env.DB_NAME}\`;`);
 
-        // Crear tabla de productos
+
         const consultaCrearTabla = `
             CREATE TABLE IF NOT EXISTS productos (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -26,7 +38,7 @@ async function iniciarBD() {
             );
         `;
         await conexion.query(consultaCrearTabla);
-        console.log('Tabla "productos" verificada/creada.');
+        console.log('Tabla "productos" verificada/creada en la nube.');
 
         await conexion.end();
     } catch (error) {
